@@ -1,5 +1,5 @@
 // "Ask AI" in the editor runs on the user's side, never on the Quipcuts servers:
-//  - with their own Claude API key: the browser calls Anthropic directly; the key stays in this browser
+//  - with their own Claude or Mistral API key: the browser calls that API directly; the key stays in this browser
 //  - without one: a small open model runs inside the browser on their GPU (WebLLM / WebGPU)
 import type { MLCEngine } from "@mlc-ai/web-llm";
 import type { Recipe } from "./api";
@@ -49,24 +49,65 @@ export function parseAdvice(text: string): Advice {
   };
 }
 
-// ---------------------------------------------------------------- their Claude key
+// ---------------------------------------------------------------- their own API key (Claude or Mistral)
 
-const KEY_STORE = "quipcuts.claudeKey";
-export const getKey = () => {
-  try {
-    return localStorage.getItem(KEY_STORE) ?? "";
-  } catch {
-    return "";
-  }
+export type Provider = "claude" | "mistral";
+export const PROVIDERS: Record<Provider, { label: string; hint: string; looksValid: (k: string) => boolean; keysUrl: string }> = {
+  claude: { label: "Claude", hint: "sk-ant-…", looksValid: (k) => k.startsWith("sk-ant-"), keysUrl: "https://console.anthropic.com/settings/keys" },
+  mistral: { label: "Mistral", hint: "32-character key", looksValid: (k) => /^[A-Za-z0-9]{20,}$/.test(k), keysUrl: "https://console.mistral.ai/api-keys" },
 };
-export const setKey = (k: string) => {
-  try {
-    if (k) localStorage.setItem(KEY_STORE, k);
-    else localStorage.removeItem(KEY_STORE);
-  } catch {
-    /* private mode: the key lasts for this page only */
-  }
+
+const store = {
+  get(name: string) {
+    try {
+      return localStorage.getItem(name) ?? "";
+    } catch {
+      return "";
+    }
+  },
+  set(name: string, v: string) {
+    try {
+      if (v) localStorage.setItem(name, v);
+      else localStorage.removeItem(name);
+    } catch {
+      /* private mode: lasts for this page only */
+    }
+  },
 };
+const keyName = (p: Provider) => (p === "claude" ? "quipcuts.claudeKey" : `quipcuts.${p}Key`);
+export const getKey = (p: Provider) => store.get(keyName(p));
+export const setKey = (p: Provider, k: string) => store.set(keyName(p), k);
+/** Which saved key to use: the chosen provider if it has a key, otherwise whichever one does. */
+export function activeProvider(): Provider | null {
+  const chosen = store.get("quipcuts.aiProvider") as Provider;
+  if (chosen in PROVIDERS && getKey(chosen)) return chosen;
+  return (Object.keys(PROVIDERS) as Provider[]).find((p) => getKey(p)) ?? null;
+}
+export const chooseProvider = (p: Provider) => store.set("quipcuts.aiProvider", p);
+
+async function askMistral(key: string, r: Recipe, mode: Mode, question: string): Promise<Advice> {
+  let res: Response;
+  try {
+    res = await fetch("https://api.mistral.ai/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        model: "mistral-small-latest",
+        max_tokens: 700,
+        temperature: 0.7,
+        response_format: { type: "json_object" },
+        messages: [{ role: "system", content: SYSTEM }, { role: "user", content: prompt(r, mode, question, 1500) }],
+      }),
+    });
+  } catch {
+    throw new Error("Couldn't reach Mistral. Check your connection.");
+  }
+  if (res.status === 401) throw new Error("Mistral rejected that API key. Check it under AI settings.");
+  if (res.status === 429) throw new Error("Your Mistral key hit its rate limit. Try again in a minute.");
+  if (!res.ok) throw new Error(`Mistral returned an error (${res.status}).`);
+  const body = await res.json();
+  return parseAdvice(body.choices?.[0]?.message?.content ?? "");
+}
 
 async function askClaude(key: string, r: Recipe, mode: Mode, question: string): Promise<Advice> {
   let res: Response;
@@ -142,6 +183,8 @@ async function askLocal(size: LocalSize, r: Recipe, mode: Mode, question: string
 }
 
 export function ask(r: Recipe, mode: Mode, question: string, size: LocalSize, onProgress: (text: string) => void): Promise<Advice> {
-  const key = getKey();
-  return key ? askClaude(key, r, mode, question) : askLocal(size, r, mode, question, onProgress);
+  const p = activeProvider();
+  if (p === "claude") return askClaude(getKey(p), r, mode, question);
+  if (p === "mistral") return askMistral(getKey(p), r, mode, question);
+  return askLocal(size, r, mode, question, onProgress);
 }

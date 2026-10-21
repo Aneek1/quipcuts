@@ -145,7 +145,7 @@ export default function Landing() {
             <tr><th>Layouts</th><td>One speaker, or two people stacked top and bottom. The two-person layout is new and can frame the wrong spot when a face isn't detected.</td></tr>
             <tr><th>Retention</th><td>Everything is <b>deleted after 7 days</b>, including your upload. Download the clips you want to keep.</td></tr>
             <tr><th>Sources</th><td>Uploads, and public YouTube links. Links are fetched by a downloader that isn't always online; when the link option is greyed out, upload the file instead.</td></tr>
-            <tr><th>AI help</th><td>Ask AI in the editor uses <b>your own Claude API key</b>, kept in your browser, or a small model that runs on your computer (Chrome or Edge, about 1 GB downloaded once). Neither goes through Quipcuts.</td></tr>
+            <tr><th>AI help</th><td>Ask AI in the editor uses <b>your own Claude or Mistral API key</b>, kept in your browser, or a small model that runs on your computer (Chrome or Edge, about 1 GB downloaded once). Neither goes through Quipcuts.</td></tr>
             <tr><th>Not yet</th><td>Posting straight to TikTok, Instagram or YouTube, saved brand presets, and a screen-share layout. These are next.</td></tr>
             <tr><th>Source code</th><td>Open source on <a href="https://github.com/Aneek1/quipcuts">GitHub</a>.</td></tr>
           </tbody>

@@ -4,7 +4,10 @@ import {
   ApiError, fmtTime, useApi, useTitle,
   type CaptionStyle, type ClipDetail, type Keyframe, type Overlay, type Recipe, type Word,
 } from "../api";
-import { ask, getKey, LOCAL_MODELS, localReady, setKey, type Advice, type LocalSize, type Mode } from "../assist";
+import {
+  activeProvider, ask, chooseProvider, getKey, LOCAL_MODELS, localReady, PROVIDERS, setKey,
+  type Advice, type LocalSize, type Mode, type Provider,
+} from "../assist";
 
 // ------------------------------------------------------------------ recipe helpers
 
@@ -486,21 +489,35 @@ function FramingPanel({ r, set, seek }: { r: Recipe; set: (r: Recipe) => void; s
 type Exchange = { ask: string; advice?: Advice; error?: string; status?: string };
 
 function AiSettings({ size, setSize, onClose }: { size: LocalSize; setSize: (s: LocalSize) => void; onClose: () => void }) {
-  const [key, setKeyInput] = useState(getKey());
-  const saved = getKey();
+  const [provider, setProvider] = useState<Provider>(activeProvider() ?? "claude");
+  const [key, setKeyInput] = useState(getKey(provider));
+  const [, refresh] = useState(0);
+  const saved = getKey(provider);
+  const info = PROVIDERS[provider];
+  const pick = (p: Provider) => (setProvider(p), setKeyInput(getKey(p)));
   return (
     <div className="ovrow">
       <b className="small">Where the AI runs</b>
       <p className="small muted" style={{ margin: 0 }}>
-        Quipcuts doesn't run this on its servers. With your own Claude API key, your browser asks Claude directly and the key stays
-        in this browser. Without a key, a small model runs on this computer's GPU after a one-time download.
+        Quipcuts doesn't run this on its servers. With your own Claude or Mistral API key, your browser asks that service
+        directly and the key stays in this browser. Without a key, a small model runs on this computer's GPU after a
+        one-time download.
       </p>
       <div className="row" style={{ gap: 8 }}>
-        <input className="grow" type="password" value={key} placeholder="Claude API key (sk-ant-…), optional"
-               onChange={(e) => setKeyInput(e.target.value.trim())} aria-label="Claude API key" autoComplete="off" />
-        <button className="btn sm" disabled={!key.startsWith("sk-ant-") || key === saved} onClick={() => (setKey(key), onClose())}>Save key</button>
-        {saved && <button className="btn sm ghost" onClick={() => (setKey(""), setKeyInput(""))}>Remove</button>}
+        <Seg value={provider} onChange={pick}
+             options={(Object.keys(PROVIDERS) as Provider[]).map((p) => [p, getKey(p) ? `${PROVIDERS[p].label} ✓` : PROVIDERS[p].label])} />
+        <a className="small" href={info.keysUrl} target="_blank" rel="noreferrer">Get a {info.label} key</a>
       </div>
+      <div className="row" style={{ gap: 8 }}>
+        <input className="grow" type="password" value={key} placeholder={`${info.label} API key (${info.hint}), optional`}
+               onChange={(e) => setKeyInput(e.target.value.trim())} aria-label={`${info.label} API key`} autoComplete="off" />
+        <button className="btn sm" disabled={!info.looksValid(key) || key === saved}
+                onClick={() => (setKey(provider, key), chooseProvider(provider), onClose())}>Save key</button>
+        {saved && <button className="btn sm ghost" onClick={() => (setKey(provider, ""), setKeyInput(""), refresh((n) => n + 1))}>Remove</button>}
+      </div>
+      {saved && activeProvider() !== provider && (
+        <button className="btn sm ghost" onClick={() => (chooseProvider(provider), refresh((n) => n + 1))}>Use {info.label} for Ask AI</button>
+      )}
       <div className="row" style={{ gap: 8 }}>
         <span className="small grow">Model on this device when there's no key</span>
         <Seg value={size} onChange={setSize} options={(Object.keys(LOCAL_MODELS) as LocalSize[]).map((k) => [k, LOCAL_MODELS[k].label])} />
@@ -516,7 +533,8 @@ function AskPanel({ r, set }: { r: Recipe; set: (r: Recipe) => void }) {
   const [settings, setSettings] = useState(false);
   const [size, setSize] = useState<LocalSize>("small");
   const dur = r.end - r.start;
-  const where = getKey() ? "your Claude key" : localReady(size) ? "this device (model loaded)" : "this device";
+  const p = activeProvider();
+  const where = p ? `your ${PROVIDERS[p].label} key` : localReady(size) ? "this device (model loaded)" : "this device";
 
   const run = async (mode: Mode, label: string, question = "") => {
     setBusy(true);
