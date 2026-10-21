@@ -14,7 +14,7 @@ import time
 import traceback
 from datetime import timedelta
 
-from openclip.recipe import Recipe, render_hash, render_recipe
+from openclip.recipe import Recipe, add_loudness, render_hash, render_recipe
 
 from . import config
 from .db import Clip, Project, _now, select, session
@@ -120,7 +120,6 @@ def render_clip(clip_id: str) -> None:
     if clip is None or project is None:
         return
     recipe = Recipe.model_validate(clip.recipe)
-    want = render_hash(recipe)
 
     def set_clip(**fields):
         with session() as s:
@@ -135,8 +134,13 @@ def render_clip(clip_id: str) -> None:
     job_dir, temporary = _workdir(project)
     out_dir = tempfile.mkdtemp(prefix="render_")
     try:
-        out = render_recipe(recipe, os.path.join(job_dir, os.path.basename(project.source_key)),
-                            os.path.join(out_dir, "clip.mp4"))
+        source_path = os.path.join(job_dir, os.path.basename(project.source_key))
+        # words a trim pulled in have no loudness yet; score them now and keep the scores, so the
+        # saved recipe (and its hash) is exactly what gets rendered
+        if recipe.zoom.enabled and add_loudness(recipe, source_path):
+            set_clip(recipe=recipe.model_dump())
+        want = render_hash(recipe)
+        out = render_recipe(recipe, source_path, os.path.join(out_dir, "clip.mp4"))
         key = f"{os.path.dirname(project.source_key)}/renders/{clip_id}_{want}.mp4"
         storage.upload(out, key, "video/mp4")
         old = clip.render_key

@@ -15,7 +15,49 @@ const OVERLAY_Y = { top: 0.14, middle: 0.42, bottom: 0.78 } as const;
 
 /** Recipes saved before captions options and overlays existed don't have those fields. */
 function normalize(r: Recipe): Recipe {
-  return { ...r, captions: { ...CAPTION_DEFAULTS, ...r.captions }, overlays: r.overlays ?? [] };
+  return { ...r, captions: { ...CAPTION_DEFAULTS, ...r.captions }, overlays: r.overlays ?? [], zoom: r.zoom ?? { enabled: false, strength: 0.08 } };
+}
+
+// Punch-in zooms: same rules as openclip/emphasis.py, so the preview zooms where the render will.
+const Z = { easeIn: 0.12, easeOut: 0.3, hold: 1.1, minGap: 4, every: 6, minZ: 0.8 };
+function pickZooms(r: Recipe): number[] {
+  const dur = r.end - r.start;
+  const cands: [number, number][] = [];
+  for (const w of r.words) {
+    const t = w.start - r.start;
+    if (w.loud == null || w.loud < Z.minZ || w.end - w.start < 0.12 || t < 0.5 || t > dur - Z.easeOut - 0.3 || !w.word.trim()) continue;
+    cands.push([w.loud, Math.round(t * 1000) / 1000]);
+  }
+  cands.sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+  const picked: number[] = [];
+  const budget = Math.max(1, Math.floor(dur / Z.every));
+  for (const [, t] of cands) {
+    if (picked.length >= budget) break;
+    if (picked.every((p) => Math.abs(t - p) >= Z.minGap)) picked.push(t);
+  }
+  return picked.sort((a, b) => a - b);
+}
+function zoomAt(t: number, zooms: number[], strength: number): number {
+  let z = 1;
+  for (const s of zooms) {
+    if (t < s || t > s + Z.easeIn + Z.hold + Z.easeOut) continue;
+    let k: number;
+    if (t < s + Z.easeIn) k = 1 - (1 - (t - s) / Z.easeIn) ** 3;
+    else if (t < s + Z.easeIn + Z.hold) k = 1;
+    else {
+      const u = 1 - (t - s - Z.easeIn - Z.hold) / Z.easeOut;
+      k = u * u * (3 - 2 * u);
+    }
+    z = Math.max(z, 1 + strength * k);
+  }
+  return z;
+}
+/** Shrink a crop box around the point the renderer zooms towards (centre, a bit above middle). */
+function zoomBox(k: Keyframe, z: number): Keyframe {
+  if (z <= 1) return k;
+  const w = k.w / z;
+  const h = k.h / z;
+  return { ...k, x: k.x + (k.w - w) / 2, y: k.y + (k.h - h) * 0.35, w, h };
 }
 
 const cropLists = (r: Recipe): ("single" | "face_1" | "face_2")[] => (r.layout === "split" ? ["face_1", "face_2"] : ["single"]);
@@ -42,11 +84,15 @@ function shiftKeyframes(kfs: Keyframe[], delta: number): Keyframe[] {
 
 /** The clip's words from the full transcript, keeping any edits the user made to words in range. */
 function wordsFor(start: number, end: number, all: Word[] | null, current: Word[]): Word[] {
-  const edited = new Map(current.map((w) => [w.start.toFixed(2), w.word]));
+  const known = new Map(current.map((w) => [w.start.toFixed(2), w]));
   const pool = all ?? current;
   return pool
     .filter((w) => w.end > start && w.start < end)
-    .map((w) => ({ ...w, word: edited.get(w.start.toFixed(2)) ?? w.word }));
+    .map((w) => {
+      const k = known.get(w.start.toFixed(2));
+      // keep edits and loudness; words new to the clip get loudness measured at render time
+      return { word: k?.word ?? w.word, start: w.start, end: w.end, loud: k?.loud ?? null };
+    });
 }
 
 function trim(r: Recipe, start: number, end: number, all: Word[] | null): Recipe {
@@ -113,6 +159,7 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 function Preview({ r, video, t }: { r: Recipe; video: HTMLVideoElement | null; t: number }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const rel = t - r.start;
+  const zooms = useMemo(() => (r.zoom.enabled ? pickZooms(r) : []), [r]);
 
   useEffect(() => {
     const c = canvas.current;
@@ -121,14 +168,15 @@ function Preview({ r, video, t }: { r: Recipe; video: HTMLVideoElement | null; t
     let raf = 0;
     const draw = () => {
       const now = video.currentTime - r.start;
+      const z = zooms.length ? zoomAt(now, zooms, r.zoom.strength) : 1;
       if (video.readyState >= 2) {
         if (r.layout === "split") {
-          const a = cropAt(r.crop.face_1!, now);
-          const b = cropAt(r.crop.face_2!, now);
+          const a = zoomBox(cropAt(r.crop.face_1!, now), z);
+          const b = zoomBox(cropAt(r.crop.face_2!, now), z);
           ctx.drawImage(video, a.x, a.y, a.w, a.h, 0, 0, c.width, c.height / 2);
           ctx.drawImage(video, b.x, b.y, b.w, b.h, 0, c.height / 2, c.width, c.height / 2);
         } else {
-          const k = cropAt(r.crop.single!, now);
+          const k = zoomBox(cropAt(r.crop.single!, now), z);
           ctx.drawImage(video, k.x, k.y, k.w, k.h, 0, 0, c.width, c.height);
         }
       }
@@ -136,7 +184,7 @@ function Preview({ r, video, t }: { r: Recipe; video: HTMLVideoElement | null; t
     };
     draw();
     return () => cancelAnimationFrame(raf);
-  }, [video, r]);
+  }, [video, r, zooms]);
 
   const pages = useMemo(() => captionPages(r), [r]);
   const page = r.captions.enabled ? pages.find((p) => p.words[0].start <= rel && rel < p.end) : undefined;
@@ -358,11 +406,39 @@ function WordsPanel({ r, set, rel, seek }: { r: Recipe; set: (r: Recipe) => void
   );
 }
 
-function FramingPanel({ r, set }: { r: Recipe; set: (r: Recipe) => void }) {
+function FramingPanel({ r, set, seek }: { r: Recipe; set: (r: Recipe) => void; seek: (t: number) => void }) {
   const rows: ["single" | "face_1" | "face_2", string][] =
     r.layout === "split" ? [["face_1", "Top panel"], ["face_2", "Bottom panel"]] : [["single", "Frame"]];
+  const zoom = (patch: Partial<Recipe["zoom"]>) => set({ ...r, zoom: { ...r.zoom, ...patch } });
+  const measured = r.words.some((w) => w.loud != null);
+  const zooms = r.zoom.enabled ? pickZooms(r) : [];
   return (
     <div className="stack">
+      <label className="check">
+        <input type="checkbox" checked={r.zoom.enabled} onChange={(e) => zoom({ enabled: e.target.checked })} /> Punch-in zoom on the loudest moments
+      </label>
+      {r.zoom.enabled && (
+        <>
+          <div className="field"><span>Zoom</span>
+            <Seg value={r.zoom.strength} onChange={(v) => zoom({ strength: v })} options={[[0.05, "Subtle"], [0.08, "Medium"], [0.12, "Strong"]]} />
+          </div>
+          {measured ? (
+            zooms.length ? (
+              <div className="row small" style={{ gap: 6 }}>
+                <span className="muted">Zooms at</span>
+                {zooms.map((z) => (
+                  <button key={z} className="btn sm ghost" onClick={() => seek(r.start + z - 0.5)}>{z.toFixed(1)}s</button>
+                ))}
+              </div>
+            ) : (
+              <p className="small muted" style={{ margin: 0 }}>No moment stands out enough in this clip, so it won't zoom.</p>
+            )
+          ) : (
+            <p className="small muted" style={{ margin: 0 }}>The loudest moments are measured when you render; the preview shows them after that.</p>
+          )}
+        </>
+      )}
+      <hr className="rule" />
       <p className="small muted" style={{ margin: 0 }}>Face tracking still follows the speaker; this shifts the whole path sideways.</p>
       {rows.map(([list, label]) => (
         <div className="row" key={list} style={{ gap: 8 }}>
@@ -646,7 +722,7 @@ export default function Editor() {
 
         <div className="right panel">
           <div className="tabs" role="tablist">
-            {([["text", "Hook & CTA"], ["ask", "Ask AI"], ["captions", "Captions"], ["words", "Words"], ["framing", "Framing"]] as [Tab, string][]).map(([k, label]) => (
+            {([["text", "Hook & CTA"], ["ask", "Ask AI"], ["captions", "Captions"], ["words", "Words"], ["framing", "Zoom & framing"]] as [Tab, string][]).map(([k, label]) => (
               <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)}>{label}</button>
             ))}
           </div>
@@ -654,7 +730,7 @@ export default function Editor() {
           <div hidden={tab !== "ask"}><AskPanel r={r} set={setR} /></div>
           {tab === "captions" && <CaptionPanel r={r} set={setR} />}
           {tab === "words" && <WordsPanel r={r} set={setR} rel={rel} seek={seek} />}
-          {tab === "framing" && <FramingPanel r={r} set={setR} />}
+          {tab === "framing" && <FramingPanel r={r} set={setR} seek={seek} />}
         </div>
       </div>
 

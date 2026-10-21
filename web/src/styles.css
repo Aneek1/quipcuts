@@ -92,7 +92,7 @@ p { margin: 0 0 12px; }
 .phone .meta { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 14px 12px; background: linear-gradient(transparent, #000c); color: #f3efe6; font: 500 11px var(--mono); display: flex; justify-content: space-between; }
 
 .ruler { border-top: 1.5px solid var(--ink); border-bottom: 1px solid var(--line); }
-.ruler-track { display: grid; grid-template-columns: repeat(4, 1fr); }
+.ruler-track { display: grid; grid-template-columns: repeat(5, 1fr); }
 .ruler-step { padding: 22px 22px 26px 0; border-right: 1px solid var(--line); position: relative; }
 .ruler-step:last-child { border-right: 0; }
 .ruler-step + .ruler-step { padding-left: 22px; }
@@ -194,8 +194,8 @@ details.log pre { font: 12px/1.5 var(--mono); background: var(--paper); border: 
   .hero { grid-template-columns: 1fr; gap: 40px; padding-top: 40px; }
   .phone { max-width: 260px; }
   .ruler-track { grid-template-columns: 1fr 1fr; }
-  .ruler-step:nth-child(2) { border-right: 0; }
-  .ruler-step:nth-child(3) { padding-left: 0; }
+  .ruler-step:nth-child(even) { border-right: 0; }
+  .ruler-step:nth-child(odd) { padding-left: 0; }
   .ruler-step:nth-child(n + 3) { border-top: 1px solid var(--line); }
   .split { grid-template-columns: 1fr; gap: 28px; }
   .section { padding: 56px 20px; }
@@ -281,3 +281,10 @@ details.log pre { font: 12px/1.5 var(--mono); background: var(--paper); border: 
   .editor { grid-template-columns: 1fr; }
   .editor .left { position: static; max-width: 340px; width: 100%; margin: 0 auto; }
 }
+.rule { border: 0; border-top: 1px solid var(--line); margin: 4px 0; width: 100%; }
+.field > .seg { align-self: flex-start; }
+.features { list-style: none; margin: 0; padding: 0; border-top: 1.5px solid var(--ink); }
+.features li { display: grid; grid-template-columns: 170px 1fr; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.features b { font-weight: 800; font-variation-settings: "wdth" 85; }
+.features span { color: var(--ink-2); font-size: 15px; }
+@media (max-width: 560px) { .features li { grid-template-columns: 1fr; gap: 4px; } }

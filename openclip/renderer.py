@@ -201,19 +201,24 @@ def _overlay_styles(font_name: str) -> str:
 # ---------------------------------------------------------------- crop commands
 
 def build_crop_commands(crop_keyframes: list, duration: float, rate: float = 30.0,
-                        target: str = "crop") -> tuple[str, int, int]:
+                        target: str = "crop", zooms: list[float] | None = None,
+                        zoom_strength: float = 0.08) -> tuple[str, int, int]:
     """Interpolate keyframes into sendcmd lines for the crop filter named `target`.
 
-    Emits "T target x X;" / "T target y Y;" only when a value changes.
+    Emits "T target x X;" / "T target y Y;" only when a value changes. With `zooms` (clip-relative
+    punch-in start times, see emphasis.pick_zooms) the crop box also shrinks around its centre
+    ("w"/"h" commands); the scale after the crop brings it back to full size, which is the zoom.
     Returns (script, initial_x, initial_y).
     """
+    from .emphasis import zoom_at
+
     kfs = sorted(crop_keyframes, key=lambda k: k["time"])
     x0, y0 = int(kfs[0]["x"]), int(kfs[0]["y"])
-    if len(kfs) == 1:
+    if len(kfs) == 1 and not zooms:
         return "", x0, y0
 
     lines = []
-    last = {"x": x0, "y": y0}
+    last = {"x": x0, "y": y0, "w": int(kfs[0]["w"]), "h": int(kfs[0]["h"])}
     idx = 0
     steps = int(duration * rate) + 1
     for s in range(1, steps):
@@ -222,18 +227,29 @@ def build_crop_commands(crop_keyframes: list, duration: float, rate: float = 30.
             idx += 1
         cur = kfs[idx]
         interpolate = idx + 1 < len(kfs) and not kfs[idx + 1].get("cut")
+        box = {}
         for axis in ("x", "y"):
             if interpolate:
                 nxt = kfs[idx + 1]
                 span = nxt["time"] - cur["time"]
                 alpha = (t - cur["time"]) / span if span > 0 else 0.0
-                v = cur[axis] + (nxt[axis] - cur[axis]) * alpha
+                box[axis] = cur[axis] + (nxt[axis] - cur[axis]) * alpha
             else:
-                v = cur[axis]  # hold until the next shot starts (hard cut, no pan across the edit)
-            v = int(round(v)) // 2 * 2
-            if v != last[axis]:
-                lines.append(f"{t:.3f} {target} {axis} {v};")
-                last[axis] = v
+                box[axis] = cur[axis]  # hold until the next shot starts (hard cut, no pan across the edit)
+        w, h = cur["w"], cur["h"]
+        z = zoom_at(t, zooms, zoom_strength) if zooms else 1.0
+        if z > 1.0:
+            zw, zh = w / z, h / z
+            box["x"] += (w - zw) / 2
+            box["y"] += (h - zh) * 0.35   # zoom a little above centre, where faces usually are
+            w, h = zw, zh
+        box["w"], box["h"] = w, h
+        # size first, then position, so the box never sticks out of the frame mid-change
+        for key in ("w", "h", "x", "y"):
+            v = int(round(box[key])) // 2 * 2
+            if v != last[key]:
+                lines.append(f"{t:.3f} {target} {key} {v};")
+                last[key] = v
     return "\n".join(lines) + ("\n" if lines else ""), x0, y0
 
 
@@ -262,9 +278,9 @@ def _ass_filter(work_dir: str) -> str:
     return ass_filter
 
 
-def _single_graph(crop_keyframes: list, duration: float, work_dir: str) -> str:
+def _single_graph(crop_keyframes: list, duration: float, work_dir: str, zooms=None, zoom_strength: float = 0.08) -> str:
     """sendcmd -> crop -> scale 1080x1920 -> ass."""
-    cmd_text, x0, y0 = build_crop_commands(crop_keyframes, duration)
+    cmd_text, x0, y0 = build_crop_commands(crop_keyframes, duration, zooms=zooms, zoom_strength=zoom_strength)
     crop_w, crop_h = int(crop_keyframes[0]["w"]), int(crop_keyframes[0]["h"])
     filters = []
     if cmd_text:
@@ -280,7 +296,7 @@ def _single_graph(crop_keyframes: list, duration: float, work_dir: str) -> str:
     return "[0:v]" + ",".join(filters) + "[vout]"
 
 
-def _split_graph(split_keyframes: dict, duration: float, work_dir: str) -> str:
+def _split_graph(split_keyframes: dict, duration: float, work_dir: str, zooms=None, zoom_strength: float = 0.08) -> str:
     """Dual-speaker layout: one decode, split into two streams, each cropped around its face.
 
         [0:v] sendcmd ─ split ─┬─ crop@face1 (Face_1 path) ─ scale 1080x960 ─┐
@@ -294,7 +310,7 @@ def _split_graph(split_keyframes: dict, duration: float, work_dir: str) -> str:
         kfs = split_keyframes.get(key)
         if not kfs:
             raise RenderError(f"Split layout needs keyframes for {key}.")
-        text, x0, y0 = build_crop_commands(kfs, duration, target=name)
+        text, x0, y0 = build_crop_commands(kfs, duration, target=name, zooms=zooms, zoom_strength=zoom_strength)
         cmd_parts.append(text)
         inits[key] = (x0, y0, int(kfs[0]["w"]), int(kfs[0]["h"]))
     cmd_text = "".join(cmd_parts)
@@ -346,6 +362,8 @@ def render_final_clip(
     highlight: str = "#FFFF00",
     uppercase: bool = True,
     overlays: list[dict] | None = None,
+    zooms: list[float] | None = None,
+    zoom_strength: float = 0.08,
 ) -> str:
     """Render one 1080x1920 MP4 with dynamic reframing and burned-in animated subtitles.
 
@@ -386,9 +404,9 @@ def render_final_clip(
             f.write(ass_text)
 
         if layout == "split":
-            graph = _split_graph(crop_keyframes, duration, work_dir)
+            graph = _split_graph(crop_keyframes, duration, work_dir, zooms, zoom_strength)
         else:
-            graph = _single_graph(crop_keyframes, duration, work_dir)
+            graph = _single_graph(crop_keyframes, duration, work_dir, zooms, zoom_strength)
 
         cmd = build_ffmpeg_command(ffmpeg, video_path, start, duration, graph, output_path, crf, preset)
         proc = subprocess.run(cmd, cwd=work_dir, capture_output=True, text=True,

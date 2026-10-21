@@ -21,7 +21,7 @@ export type ClipSummary = {
 
 // Mirrors openclip/recipe.py. Times in `words` and `start`/`end` are seconds in the source video;
 // keyframe and overlay times are seconds from the clip start.
-export type Word = { word: string; start: number; end: number };
+export type Word = { word: string; start: number; end: number; loud?: number | null };
 export type Keyframe = { time: number; x: number; y: number; w: number; h: number; cut?: boolean };
 export type Overlay = {
   kind: "hook" | "cta" | "text";
@@ -52,6 +52,7 @@ export type Recipe = {
   words: Word[];
   captions: CaptionStyle;
   overlays: Overlay[];
+  zoom: { enabled: boolean; strength: number };
 };
 export type ClipDetail = ClipSummary & {
   recipe: Recipe;

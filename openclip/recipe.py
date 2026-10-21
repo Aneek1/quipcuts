@@ -25,6 +25,13 @@ class Word(BaseModel):
     word: str
     start: float
     end: float
+    loud: float | None = None    # loudness z-score within the clip (openclip/emphasis.py); drives punch-in zooms
+
+
+class ZoomStyle(BaseModel):
+    """Punch-in zooms on the loudest words."""
+    enabled: bool = False
+    strength: float = Field(0.08, ge=0.03, le=0.2)   # 0.08 = zoom in 8%
 
 
 class Keyframe(BaseModel):
@@ -85,6 +92,7 @@ class Recipe(BaseModel):
     words: list[Word]
     captions: CaptionStyle = CaptionStyle()
     overlays: list[Overlay] = Field(default_factory=list, max_length=6)
+    zoom: ZoomStyle = ZoomStyle()
 
     @model_validator(mode="after")
     def _check(self) -> "Recipe":
@@ -104,14 +112,37 @@ class Recipe(BaseModel):
         return self
 
 
-def from_pipeline(clip: dict, keyframes, layout: str, source: Source) -> Recipe:
-    """Build a recipe from an analyzer clip and the cropper's keyframes."""
+def from_pipeline(clip: dict, keyframes, layout: str, source: Source, media_path: str | None = None) -> Recipe:
+    """Build a recipe from an analyzer clip and the cropper's keyframes.
+
+    With `media_path` (anything ffmpeg can read the audio from), words get loudness scores and
+    punch-in zooms are switched on.
+    """
     crop = Crop(single=keyframes) if layout == "single" else Crop(face_1=keyframes["face_1"],
                                                                      face_2=keyframes["face_2"])
-    return Recipe(source=source, start=clip["start_time"], end=clip["end_time"],
-                  title=clip["headline_title"], score=clip.get("virality_score"),
-                  reason=clip.get("virality_score_rationale", ""), layout=layout, crop=crop,
-                  words=[Word(word=w["word"], start=w["start"], end=w["end"]) for w in clip.get("words", [])])
+    words = [Word(word=w["word"], start=w["start"], end=w["end"]) for w in clip.get("words", [])]
+    recipe = Recipe(source=source, start=clip["start_time"], end=clip["end_time"],
+                    title=clip["headline_title"], score=clip.get("virality_score"),
+                    reason=clip.get("virality_score_rationale", ""), layout=layout, crop=crop, words=words)
+    if media_path:
+        add_loudness(recipe, media_path)
+        recipe.zoom.enabled = True
+    return recipe
+
+
+def add_loudness(recipe: Recipe, media_path: str) -> bool:
+    """Fill in Word.loud where it's missing (e.g. after a trim pulled in new words). True if anything changed."""
+    from .emphasis import word_loudness
+
+    if all(w.loud is not None for w in recipe.words) or not recipe.words:
+        return False
+    try:
+        scores = word_loudness(media_path, recipe.start, recipe.end, [w.model_dump() for w in recipe.words])
+    except Exception:  # a clip without readable audio just gets no zooms
+        return False
+    for w, z in zip(recipe.words, scores):
+        w.loud = z
+    return True
 
 
 # Fields added after the first recipes were rendered. Left out of the hash while they hold their
@@ -127,6 +158,11 @@ def render_hash(recipe: Recipe) -> str:
             data["captions"].pop(k)
     if not data["overlays"]:
         data.pop("overlays")
+    if not data["zoom"]["enabled"]:
+        data.pop("zoom")
+    for w in data["words"]:
+        if w.get("loud") is None or "zoom" not in data:   # loudness only matters once zooms are on
+            w.pop("loud", None)
     return hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()[:16]
 
 
@@ -139,8 +175,14 @@ def render_recipe(recipe: Recipe, source_path: str, out_path: str, preset: str =
     else:
         keyframes = [k.model_dump() for k in recipe.crop.single]
     cap = recipe.captions
+    zooms = []
+    if recipe.zoom.enabled:
+        from .emphasis import pick_zooms
+        add_loudness(recipe, source_path)
+        zooms = pick_zooms([w.model_dump() for w in recipe.words], recipe.start, recipe.end)
     return render_final_clip(source_path, clip, keyframes, out_path, font_name=cap.font,
                              font_size=cap.size, layout=recipe.layout, preset=preset,
                              captions=cap.enabled, caption_position=cap.position,
                              highlight=cap.highlight, uppercase=cap.uppercase,
-                             overlays=[o.model_dump() for o in recipe.overlays])
+                             overlays=[o.model_dump() for o in recipe.overlays],
+                             zooms=zooms, zoom_strength=recipe.zoom.strength)

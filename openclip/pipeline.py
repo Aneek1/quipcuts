@@ -135,7 +135,9 @@ def _process(media: dict, job_dir: str, url: str | None, video_id: str | None, s
         log(f"{label}: layout '{layout}'{ratio_txt}.")
 
         name = f"{n:02d}_{_slug(clip['headline_title'])}"
-        recipe = from_pipeline(clip, keyframes, layout, source)
+        # loudness per word comes from the extracted 16 kHz WAV (fast); it switches on punch-in zooms
+        recipe = from_pipeline(clip, keyframes, layout, source,
+                               media_path=media.get("audio_path") or media["video_path"])
         recipe_path = os.path.join(recipes_dir, f"{name}.json")
         with open(recipe_path, "w", encoding="utf-8") as f:
             f.write(recipe.model_dump_json(indent=1))
