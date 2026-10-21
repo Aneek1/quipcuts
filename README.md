@@ -22,7 +22,7 @@ Requires **Python 3.10+** and **FFmpeg** (with libass + libx264, which all commo
 
 ```bash
 # FFmpeg:  winget install Gyan.FFmpeg  |  brew install ffmpeg  |  sudo apt install ffmpeg
-git clone <this repo> openclip-ai && cd openclip-ai
+git clone https://github.com/Aneek1/quipcuts.git && cd quipcuts
 python -m venv .venv
 .venv\Scripts\activate            # Windows
 # source .venv/bin/activate       # macOS / Linux
@@ -102,7 +102,7 @@ Behaviour:
 ## Layout
 
 ```
-openclip-ai/
+quipcuts/
 ├── app.py                  # Module F: Streamlit UI
 ├── openclip/
 │   ├── downloader.py       # Module A
