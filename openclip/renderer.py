@@ -52,6 +52,23 @@ def _ass_escape(text: str) -> str:
     return text.replace("\\", "\\\\").replace("{", "(").replace("}", ")").replace("\n", " ")
 
 
+def _ass_colour(hex_rgb: str) -> str:
+    """#RRGGBB -> &H00BBGGRR (ASS colours are alpha-blue-green-red)."""
+    h = hex_rgb.lstrip("#")
+    return f"&H00{h[4:6]}{h[2:4]}{h[0:2]}".upper()
+
+
+# Overlay looks: (text colour, box colour or None for an outline only)
+OVERLAY_STYLES = {
+    "light": ("#15130F", "#FFFFFF"),
+    "dark": ("#FFFFFF", "#15130F"),
+    "accent": ("#FFFFFF", "#FF4D1F"),
+    "plain": ("#FFFFFF", None),
+}
+OVERLAY_Y = {"top": 0.14, "middle": 0.42, "bottom": 0.78}
+OVERLAY_SIZE = 72
+
+
 def default_font() -> str:
     if glob.glob(os.path.join(PROJECT_FONTS_DIR, "Montserrat*Black*.ttf")):
         return "Montserrat Black"
@@ -89,21 +106,27 @@ def build_ass_subtitles(
     max_words_per_line: int = 3,
     max_chars_per_line: int = 18,
     vertical_position: float = 0.62,
+    captions: bool = True,
+    highlight: str = "#FFFF00",
+    uppercase: bool = True,
+    overlays: list[dict] | None = None,
 ) -> str:
-    """Build an .ass script with the active word in yellow and the rest of the line in white.
+    """Build an .ass script with the active word highlighted and the rest of the line in white.
 
     `words` use absolute source times; they are shifted so 0 is the clip start.
     `vertical_position` is the subtitle centre as a fraction of frame height (0.62 sits in the
     lower part of the middle third, clear of faces and of platform UI at the bottom).
+    `overlays` are recipe overlays (text, start/end from the clip start, position, style).
     """
     duration = clip_end - clip_start
     font_name = font_name or default_font()
+    active = _ass_colour(highlight) + "&"
     prepared = []
-    for w in words:
+    for w in (words if captions else []):
         start, end = w["start"] - clip_start, w["end"] - clip_start
         if end <= 0 or start >= duration:
             continue
-        text = _ass_escape(w["word"].strip().upper())
+        text = _ass_escape(w["word"].strip().upper() if uppercase else w["word"].strip())
         if not text:
             continue
         # strip trailing punctuation for display, keep the raw token for line breaking decisions
@@ -121,7 +144,7 @@ YCbCr Matrix: TV.709
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Caption,{font_name},{font_size},&H00FFFFFF,&H00FFFFFF,&H00000000,&H96000000,-1,0,0,0,100,100,2,0,1,7,4,5,70,70,0,1
-
+{_overlay_styles(font_name)}
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
@@ -141,14 +164,38 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 if m == k:
                     # active word: yellow, slightly larger, with a quick pop-in
                     parts.append(
-                        f"{{\\c{YELLOW}\\fscx118\\fscy118\\t(0,90,\\fscx108\\fscy108)}}{other['text']}{{\\r}}"
+                        f"{{\\c{active}\\fscx118\\fscy118\\t(0,90,\\fscx108\\fscy108)}}{other['text']}{{\\r}}"
                     )
                 else:
                     parts.append(f"{{\\c{WHITE}}}{other['text']}")
             text = f"{{\\an5\\pos({x},{y})}}" + " ".join(parts)
             events.append(f"Dialogue: 0,{_ass_time(ev_start)},{_ass_time(ev_end)},Caption,,0,0,0,,{text}")
 
+    for o in overlays or []:
+        start, end = max(0.0, float(o["start"])), min(duration, float(o["end"]))
+        if end - start < 0.05 or not o["text"].strip():
+            continue
+        oy = int(OUT_H * OVERLAY_Y.get(o.get("position", "top"), OVERLAY_Y["top"]))
+        style = "Ov_" + (o.get("style") if o.get("style") in OVERLAY_STYLES else "light")
+        fade = int(min(150, (end - start) * 250))
+        text = f"{{\\an5\\pos({OUT_W // 2},{oy})\\fad({fade},{fade})}}" + _ass_escape(o["text"].strip())
+        # layer 1 keeps overlays above the captions where they meet
+        events.append(f"Dialogue: 1,{_ass_time(start)},{_ass_time(end)},{style},,0,0,0,,{text}")
+
     return header + "\n".join(events) + "\n"
+
+
+def _overlay_styles(font_name: str) -> str:
+    """One ASS style per overlay look. Boxed looks use BorderStyle 3: the outline colour fills the box."""
+    lines = []
+    for name, (fg, box) in OVERLAY_STYLES.items():
+        if box:
+            lines.append(f"Style: Ov_{name},{font_name},{OVERLAY_SIZE},{_ass_colour(fg)},{_ass_colour(fg)},"
+                         f"{_ass_colour(box)},{_ass_colour(box)},-1,0,0,0,100,100,1,0,3,18,0,5,90,90,0,1")
+        else:
+            lines.append(f"Style: Ov_{name},{font_name},{OVERLAY_SIZE},{_ass_colour(fg)},{_ass_colour(fg)},"
+                         f"&H00000000,&H96000000,-1,0,0,0,100,100,1,0,1,6,3,5,90,90,0,1")
+    return "\n".join(lines) + "\n"
 
 
 # ---------------------------------------------------------------- crop commands
@@ -294,6 +341,11 @@ def render_final_clip(
     preset: str = "medium",
     keep_work_files: bool = False,
     layout: str = "single",
+    captions: bool = True,
+    caption_position: float | None = None,
+    highlight: str = "#FFFF00",
+    uppercase: bool = True,
+    overlays: list[dict] | None = None,
 ) -> str:
     """Render one 1080x1920 MP4 with dynamic reframing and burned-in animated subtitles.
 
@@ -325,9 +377,11 @@ def render_final_clip(
     work_dir = tempfile.mkdtemp(prefix="render_", dir=os.path.dirname(output_path))
 
     try:
+        position = caption_position if caption_position is not None else (0.5 if layout == "split" else 0.62)
         ass_text = build_ass_subtitles(clip_metadata.get("words", []), start, end,
                                        font_name=font_name, font_size=font_size,
-                                       vertical_position=0.5 if layout == "split" else 0.62)
+                                       vertical_position=position, captions=captions,
+                                       highlight=highlight, uppercase=uppercase, overlays=overlays)
         with open(os.path.join(work_dir, "subs.ass"), "w", encoding="utf-8") as f:
             f.write(ass_text)
 

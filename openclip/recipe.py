@@ -42,9 +42,26 @@ class Crop(BaseModel):
     face_2: list[Keyframe] | None = None
 
 
+HEX = r"^#[0-9A-Fa-f]{6}$"
+
+
 class CaptionStyle(BaseModel):
     font: str | None = None      # None = renderer default (Montserrat Black when installed)
     size: int = Field(96, ge=24, le=200)
+    enabled: bool = True
+    position: float | None = Field(None, ge=0.1, le=0.9)   # centre as a fraction of height; None = layout default
+    highlight: str = Field("#FFFF00", pattern=HEX)          # colour of the word being spoken
+    uppercase: bool = True
+
+
+class Overlay(BaseModel):
+    """Text on top of the clip for a stretch of time: a hook at the start, a CTA at the end, a label."""
+    kind: Literal["hook", "cta", "text"] = "text"
+    text: str = Field(min_length=1, max_length=80)
+    start: float = Field(ge=0)   # seconds from the clip start
+    end: float
+    position: Literal["top", "middle", "bottom"] = "top"
+    style: Literal["light", "dark", "accent", "plain"] = "light"
 
 
 class Source(BaseModel):
@@ -67,6 +84,7 @@ class Recipe(BaseModel):
     crop: Crop
     words: list[Word]
     captions: CaptionStyle = CaptionStyle()
+    overlays: list[Overlay] = Field(default_factory=list, max_length=6)
 
     @model_validator(mode="after")
     def _check(self) -> "Recipe":
@@ -76,6 +94,9 @@ class Recipe(BaseModel):
             raise ValueError("end is past the end of the source video")
         if self.end - self.start > 180:
             raise ValueError("clips are capped at 3 minutes")
+        for o in self.overlays:
+            if o.end <= o.start or o.start >= self.end - self.start:
+                raise ValueError(f"the text '{o.text}' has to start and end inside the clip")
         if self.layout == "single" and not self.crop.single:
             raise ValueError("single layout needs crop.single keyframes")
         if self.layout == "split" and not (self.crop.face_1 and self.crop.face_2):
@@ -93,9 +114,19 @@ def from_pipeline(clip: dict, keyframes, layout: str, source: Source) -> Recipe:
                   words=[Word(word=w["word"], start=w["start"], end=w["end"]) for w in clip.get("words", [])])
 
 
+# Fields added after the first recipes were rendered. Left out of the hash while they hold their
+# defaults, so clips rendered before they existed don't all show up as out of date.
+_LATER_CAPTION_FIELDS = {"enabled": True, "position": None, "highlight": "#FFFF00", "uppercase": True}
+
+
 def render_hash(recipe: Recipe) -> str:
     """Changes whenever anything that affects the rendered pixels or audio changes."""
     data = recipe.model_dump(exclude={"score", "reason"})
+    for k, default in _LATER_CAPTION_FIELDS.items():
+        if data["captions"].get(k) == default:
+            data["captions"].pop(k)
+    if not data["overlays"]:
+        data.pop("overlays")
     return hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()[:16]
 
 
@@ -107,5 +138,9 @@ def render_recipe(recipe: Recipe, source_path: str, out_path: str, preset: str =
                      "face_2": [k.model_dump() for k in recipe.crop.face_2]}
     else:
         keyframes = [k.model_dump() for k in recipe.crop.single]
-    return render_final_clip(source_path, clip, keyframes, out_path, font_name=recipe.captions.font,
-                             font_size=recipe.captions.size, layout=recipe.layout, preset=preset)
+    cap = recipe.captions
+    return render_final_clip(source_path, clip, keyframes, out_path, font_name=cap.font,
+                             font_size=cap.size, layout=recipe.layout, preset=preset,
+                             captions=cap.enabled, caption_position=cap.position,
+                             highlight=cap.highlight, uppercase=cap.uppercase,
+                             overlays=[o.model_dump() for o in recipe.overlays])

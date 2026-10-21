@@ -6,6 +6,7 @@ import { AuthProvider, useSession } from "./auth";
 import Landing from "./pages/Landing";
 import { Privacy, Terms } from "./pages/Legal";
 import ProjectPage from "./pages/Project";
+import Editor from "./pages/Editor";
 import Projects from "./pages/Projects";
 import "./styles.css";
 
@@ -76,6 +77,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/app" element={<RequireSignIn><Projects /></RequireSignIn>} />
         <Route path="/app/p/:id" element={<RequireSignIn><ProjectPage /></RequireSignIn>} />
+        <Route path="/app/c/:id" element={<RequireSignIn><Editor /></RequireSignIn>} />
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="*" element={<NotFound />} />

@@ -93,11 +93,13 @@ function ClipCard({ clip, rank }: { clip: ClipSummary; rank: number }) {
           {clip.layout === "split" ? "two people" : "one person"}
         </span>
         {clip.reason && <p className="why">{clip.reason}</p>}
-        {clip.download_url && (
-          <div className="actions">
+        <div className="actions">
+          <Link className="btn sm" to={`/app/c/${clip.id}`}>Edit</Link>
+          {clip.download_url && !["queued", "rendering"].includes(clip.render_status) && (
             <a className="btn sm primary" href={clip.download_url}>Download MP4</a>
-          </div>
-        )}
+          )}
+          {["queued", "rendering"].includes(clip.render_status) && <span className="mono faint">rendering…</span>}
+        </div>
       </div>
     </article>
   );

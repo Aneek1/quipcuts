@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@clerk/clerk-react": "5.61.3",
+    "@mlc-ai/web-llm": "^0.2.86",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-router-dom": "7.9.4"

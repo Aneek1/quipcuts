@@ -337,7 +337,11 @@ def remove_project(project_id: str, user: User = Depends(current_user)):
 @app.get("/api/clips/{clip_id}")
 def get_clip(clip_id: str, user: User = Depends(current_user)):
     c, p = _own_clip(clip_id, user)
-    return {**_clip_out(c, full=True), "project_id": p.id, "source_url": storage.get_url(p.source_key)}
+    # the whole video's words, so the editor can extend a clip past the range the model picked
+    transcript_key = f"{os.path.dirname(p.source_key)}/transcript.json"
+    return {**_clip_out(c, full=True), "project_id": p.id, "project_title": p.title,
+            "source_url": storage.get_url(p.source_key),
+            "transcript_url": storage.get_url(transcript_key) if storage.size(transcript_key) else None}
 
 
 @app.put("/api/clips/{clip_id}/recipe")

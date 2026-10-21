@@ -41,7 +41,6 @@ app = modal.App("quipcuts")
 secret = modal.Secret.from_name("quipcuts")
 fetcher_secret = modal.Secret.from_name("quipcuts-fetcher")  # deploy/set_fetcher_token.py
 
-
 def _ignore(p: Path) -> bool:
     return any(part in {"__pycache__", ".venv", "workspace", "data", "tests"} for part in p.parts)
 

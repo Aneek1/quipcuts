@@ -19,6 +19,48 @@ export type ClipSummary = {
   stale: boolean;
 };
 
+// Mirrors openclip/recipe.py. Times in `words` and `start`/`end` are seconds in the source video;
+// keyframe and overlay times are seconds from the clip start.
+export type Word = { word: string; start: number; end: number };
+export type Keyframe = { time: number; x: number; y: number; w: number; h: number; cut?: boolean };
+export type Overlay = {
+  kind: "hook" | "cta" | "text";
+  text: string;
+  start: number;
+  end: number;
+  position: "top" | "middle" | "bottom";
+  style: "light" | "dark" | "accent" | "plain";
+};
+export type CaptionStyle = {
+  font: string | null;
+  size: number;
+  enabled: boolean;
+  position: number | null;
+  highlight: string;
+  uppercase: boolean;
+};
+export type Recipe = {
+  version: number;
+  source: { key: string; width: number; height: number; duration: number; fps: number | null };
+  start: number;
+  end: number;
+  title: string;
+  score: number | null;
+  reason: string;
+  layout: "single" | "split";
+  crop: { single?: Keyframe[] | null; face_1?: Keyframe[] | null; face_2?: Keyframe[] | null };
+  words: Word[];
+  captions: CaptionStyle;
+  overlays: Overlay[];
+};
+export type ClipDetail = ClipSummary & {
+  recipe: Recipe;
+  project_id: string;
+  project_title: string;
+  source_url: string;
+  transcript_url: string | null;
+};
+
 export type Project = {
   id: string;
   title: string;
