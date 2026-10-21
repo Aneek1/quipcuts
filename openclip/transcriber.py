@@ -114,8 +114,13 @@ def transcribe_audio(
         # device="auto" picks CUDA whenever a GPU exists, but missing cuBLAS/cuDNN DLLs only
         # surface on the first decode. Retry on CPU instead of failing the whole job.
         if device != "cpu" and re.search(r"cuda|cublas|cudnn", str(exc), re.I):
+            cpu_model = _get_model(model_size, "cpu", "int8")
+            # Remember the fallback: a CUDA model whose first decode failed hangs (rather than
+            # raising again) on the next call in the same process.
+            with _LOCK:
+                _MODELS[(model_size, device, compute_type)] = cpu_model
             try:
-                words, info = _run(_get_model(model_size, "cpu", "int8"), audio, language)
+                words, info = _run(cpu_model, audio, language)
             except Exception as cpu_exc:
                 raise TranscriptionError(f"Transcription failed: {cpu_exc}") from cpu_exc
         else:

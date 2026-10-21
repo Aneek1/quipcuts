@@ -16,7 +16,7 @@ from typing import Callable
 from .analyzer import DEFAULT_MODEL, DEFAULT_OLLAMA_MODEL, OLLAMA_URL, analyze_transcript, resolve_llm
 from .cropper import scan_faces, single_keyframes_from_scan, split_keyframes_from_scan
 from .downloader import download_youtube_video, ingest_local_video, video_id_from_url
-from .renderer import render_final_clip
+from .recipe import Source, from_pipeline, render_recipe
 from .transcriber import transcribe_audio
 
 LogFn = Callable[[str], None]
@@ -112,6 +112,12 @@ def _process(media: dict, job_dir: str, url: str | None, video_id: str | None, s
 
     # D + E - reframe and render each clip
     clips_dir = os.path.join(job_dir, "clips")
+    recipes_dir = os.path.join(job_dir, "recipes")
+    os.makedirs(recipes_dir, exist_ok=True)
+    # recipes point at the source by its path inside the job folder, so the folder can move
+    source = Source(key=os.path.relpath(media["video_path"], job_dir).replace("\\", "/"),
+                    width=media["width"], height=media["height"], duration=media["duration"],
+                    fps=media.get("fps"))
     results = []
     for n, clip in enumerate(clips, 1):
         label = f"[{n}/{len(clips)}] {clip['headline_title']}"
@@ -128,12 +134,18 @@ def _process(media: dict, job_dir: str, url: str | None, video_id: str | None, s
         ratio_txt = f", two faces in {two_face_ratio:.0%} of frames" if two_face_ratio is not None else ""
         log(f"{label}: layout '{layout}'{ratio_txt}.")
 
-        out_path = os.path.join(clips_dir, f"{n:02d}_{_slug(clip['headline_title'])}.mp4")
+        name = f"{n:02d}_{_slug(clip['headline_title'])}"
+        recipe = from_pipeline(clip, keyframes, layout, source)
+        recipe_path = os.path.join(recipes_dir, f"{name}.json")
+        with open(recipe_path, "w", encoding="utf-8") as f:
+            f.write(recipe.model_dump_json(indent=1))
+
+        out_path = os.path.join(clips_dir, f"{name}.mp4")
         log(f"Step 5/5 - {label}: rendering 1080x1920 with subtitles...")
-        render_final_clip(media["video_path"], clip, keyframes, out_path, layout=layout)
+        render_recipe(recipe, media["video_path"], out_path)
 
         results.append({**{k: v for k, v in clip.items() if k != "words"}, "output_path": out_path,
-                        "layout": layout, "two_face_ratio": two_face_ratio})
+                        "recipe_path": recipe_path, "layout": layout, "two_face_ratio": two_face_ratio})
         progress(0.50 + 0.50 * n / len(clips))
 
     summary = {

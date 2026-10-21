@@ -160,6 +160,28 @@ python -m tests.smoke_test workspace/arj7ostglku   # then runs offline; mocked L
 python -m tests.test_parser                        # LLM-output parser: 12 malformed-response cases
 ```
 
+## Web app (beta, in progress)
+
+A React frontend (`web/`) and a FastAPI backend (`server/`) that replace the Streamlit UI for the
+hosted version. Each clip is stored as a **recipe** (`openclip/recipe.py`): source video, start/end,
+crop keyframes, caption words and style. Rendering is done from the recipe, so a clip can be edited
+and re-rendered without re-running the pipeline.
+
+Run it locally (two terminals, from the repo root):
+
+```
+pip install fastapi "uvicorn[standard]" sqlmodel python-multipart "pyjwt[crypto]" boto3 httpx
+uvicorn server.main:app --port 8000
+cd web && npm install && npm run dev        # http://localhost:5173
+```
+
+With no settings it stores files in `./data`, uses SQLite and signs everyone in as a local
+"dev" user. Production settings (all environment variables, see `server/config.py`):
+`STORAGE=r2` plus `R2_*` for Cloudflare R2, `DATABASE_URL` for Postgres, `CLERK_ISSUER` for
+sign-in, `WEB_ORIGINS` for CORS; the frontend reads `VITE_API_URL` and
+`VITE_CLERK_PUBLISHABLE_KEY` (`web/.env.example`). `web/` builds to static files for
+Cloudflare Pages.
+
 ## Hosted demo (Modal)
 
 `deploy/modal_app.py` runs a public demo at https://aneek1--openclip-ui.us-east.modal.run:

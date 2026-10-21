@@ -1,0 +1,5 @@
+# Only the link downloader is built from this folder; it needs three files.
+*
+!openclip/__init__.py
+!openclip/downloader.py
+!fetcher/agent.py

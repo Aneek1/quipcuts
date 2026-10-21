@@ -1,0 +1,13 @@
+# docker compose -f fetcher/compose.yaml up -d --build      (from the repo root)
+services:
+  fetcher:
+    build:
+      context: ..
+      dockerfile: fetcher/Dockerfile
+    env_file: .env          # FETCHER_TOKEN=..., written by deploy/set_fetcher_token.py
+    environment:
+      API_URL: https://aneek1--quipcuts-api.us-east.modal.run
+      FETCHER_ID: home-pc
+    restart: unless-stopped
+    logging:
+      options: { max-size: "5m", max-file: "2" }

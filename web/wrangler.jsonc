@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // The site is static files (npm run build -> dist). Unknown paths fall back to index.html so
+  // React Router can handle /app, /privacy and so on.
+  "name": "quipcuts",
+  "compatibility_date": "2026-10-19",
+  "observability": { "enabled": true },
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  },
+  "routes": [
+    { "pattern": "quipcuts.app", "custom_domain": true },
+    { "pattern": "www.quipcuts.app", "custom_domain": true }
+  ]
+}

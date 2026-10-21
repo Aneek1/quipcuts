@@ -14,7 +14,7 @@ SITE_KEY = "0x4AAAAAAFeeaUV5eJuoZFr8"  # Cloudflare Turnstile widget "openclip"
 secret = getpass.getpass("Turnstile secret key for the 'openclip' widget (input hidden): ").strip()
 if not secret.startswith("0x"):
     raise SystemExit("That doesn't look like a Turnstile secret key (they start with 0x). Nothing was saved.")
-modal.Secret.objects.create("openclip-turnstile",
-                            {"TURNSTILE_SITE_KEY": SITE_KEY, "TURNSTILE_SECRET_KEY": secret},
-                            allow_existing=True)
+# create() with allow_existing keeps old values, so replace the secret on a re-run
+modal.Secret.objects.delete("openclip-turnstile", allow_missing=True)
+modal.Secret.objects.create("openclip-turnstile", {"TURNSTILE_SITE_KEY": SITE_KEY, "TURNSTILE_SECRET_KEY": secret})
 print("Saved Modal secret 'openclip-turnstile'.")

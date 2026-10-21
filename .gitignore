@@ -5,3 +5,8 @@ workspace/
 client_secret*.json
 token.json
 .env
+data/
+node_modules/
+web/dist/
+.wrangler/
+fetcher/.env
