@@ -76,21 +76,37 @@ def seed_of(*parts):
     return int(hashlib.sha256("|".join(map(str, parts)).encode()).hexdigest()[:12], 16)
 
 
+CACHE = ROOT / "results" / "judge_cache.json"
+_cache: dict = json.loads(CACHE.read_text(encoding="utf-8")) if CACHE.exists() else {}
+_params = {"temperature": 0}   # dropped if the judge model doesn't accept it
+
+
 def ask(client, key, title, a, b):
+    ck = hashlib.sha256(f"{JUDGE}|{title}|{a}|{b}".encode()).hexdigest()
+    if ck in _cache:  # re-runs don't pay for the same call twice
+        return tuple(_cache[ck])
     for attempt in range(5):
         r = client.post("https://api.anthropic.com/v1/messages", headers={
             "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
-            json={"model": JUDGE, "max_tokens": 200, "temperature": 0,
+            json={"model": JUDGE, "max_tokens": 200, **_params,
                   "messages": [{"role": "user", "content": PROMPT.format(title=title, a=a, b=b)}]}, timeout=120)
         if r.status_code in (429, 500, 502, 503, 529):
             time.sleep(2 ** attempt * 3)
             continue
-        r.raise_for_status()
+        if r.status_code == 400 and "temperature" in r.text and _params:
+            print("  (the judge model doesn't take a temperature setting; continuing without it)")
+            _params.clear()
+            continue
+        if r.status_code >= 400:
+            sys.exit(f"The Claude API refused the request ({r.status_code}): {r.text[:500]}")
         text = "".join(c.get("text", "") for c in r.json()["content"])
         m = re.search(r"\{.*\}", text, re.S)
         data = json.loads(m.group(0)) if m else {}
         better = str(data.get("better", "tie")).strip().upper()
-        return (better if better in ("A", "B") else "tie"), str(data.get("why", ""))[:300]
+        result = ((better if better in ("A", "B") else "tie"), str(data.get("why", ""))[:300])
+        _cache[ck] = result
+        CACHE.write_text(json.dumps(_cache, ensure_ascii=False), encoding="utf-8")
+        return result
     raise RuntimeError("judge kept failing")
 
 
