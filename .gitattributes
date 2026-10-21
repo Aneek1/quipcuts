@@ -1,0 +1,2 @@
+*.sh text eol=lf
+fetcher/Dockerfile text eol=lf
