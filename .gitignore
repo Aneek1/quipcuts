@@ -10,3 +10,7 @@ node_modules/
 web/dist/
 .wrangler/
 fetcher/.env
+
+# local-only: TED sample clips for the old Streamlit demo (not ours to publish)
+deploy/sample/
+web/.vite/
