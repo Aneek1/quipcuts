@@ -122,7 +122,7 @@ def me(user: User = Depends(current_user)):
             "limits": {"projects_per_day": config.PROJECTS_PER_DAY, "max_upload_mb": config.MAX_UPLOAD_MB,
                        "max_video_min": config.MAX_VIDEO_S // 60, "max_clips": config.MAX_CLIPS,
                        "keep_days": config.KEEP_DAYS},
-            "used_today": _used_today(user.id), "links": _fetcher_online()}
+            "used_today": _used_today(user.id), "links": config.LINKS_ENABLED and _fetcher_online()}
 
 
 class UploadIn(BaseModel):
@@ -205,6 +205,8 @@ class LinkIn(StartIn):
 
 @app.post("/api/projects/from-link")
 def create_from_link(body: LinkIn, user: User = Depends(current_user)):
+    if not config.LINKS_ENABLED:
+        raise HTTPException(410, "Links are switched off. Upload the video file instead.")
     url = body.url.strip()
     if not YOUTUBE_RE.match(url):
         raise HTTPException(400, "Paste a YouTube video link (youtube.com/watch?v=… or youtu.be/…).")

@@ -53,7 +53,6 @@ export function Terms() {
       <h2>Your content</h2>
       <ul>
         <li>Only upload videos you own or have permission to use. You're responsible for what you upload and for where you post the clips.</li>
-        <li>The same goes for YouTube links: paste a link only for a video you made or have the rights holder's permission to use. Pulling other people's videos to repost their clips can break YouTube's terms and their copyright.</li>
         <li>You keep all rights to your videos and clips. You give us permission to store and process them only to provide the service.</li>
         <li>Don't upload anything illegal, anything that infringes someone else's rights, or sexual content involving minors. We'll remove such content and may close the account.</li>
       </ul>

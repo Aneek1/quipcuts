@@ -39,7 +39,7 @@ function DemoClip() {
 }
 
 const STEPS = [
-  ["Upload", "A talk, podcast or interview you own, up to 15 minutes. A YouTube link of your own video works too."],
+  ["Upload", "A talk, podcast or interview you own, up to 15 minutes. MP4, MOV, MKV or WebM."],
   ["Transcribe", "Whisper writes down every word with its start and end time."],
   ["Pick", "qwen3:8b, an open-weights model running on the Quipcuts GPU rather than an outside AI service, reads the transcript and picks moments that make sense without the rest of the video."],
   ["Cut", "Each moment is reframed to 9:16 around the speaker and captioned word by word."],
@@ -154,7 +154,7 @@ export default function Landing() {
             <tr><th>Speed</th><td>About two minutes for a 4-minute video. If nobody has used it for a while, add about a minute and a half for the GPU to wake up.</td></tr>
             <tr><th>Layouts</th><td>One speaker, or two people stacked top and bottom. The two-person layout is new and can frame the wrong spot when a face isn't detected.</td></tr>
             <tr><th>Retention</th><td>Everything is <b>deleted after 7 days</b>, including your upload. Download the clips you want to keep.</td></tr>
-            <tr><th>Sources</th><td>Upload the file: MP4, MOV, MKV or WebM. Links to your own YouTube videos also work, through a downloader that isn't always online. Either way, only use videos you own or have permission to use.</td></tr>
+            <tr><th>Sources</th><td>File uploads only: MP4, MOV, MKV or WebM, up to 500 MB. If your video is on YouTube, download it from YouTube Studio first. Only use videos you own or have permission to use.</td></tr>
             <tr><th>AI help</th><td>Ask AI in the editor uses <b>your own Claude or Mistral API key</b>, kept in your browser, or a small model that runs on your computer (Chrome or Edge, about 1 GB downloaded once). Neither goes through Quipcuts.</td></tr>
             <tr><th>Not yet</th><td>Posting straight to TikTok, Instagram or YouTube, saved brand presets, and a screen-share layout. These are next.</td></tr>
             <tr><th>Source code</th><td>Open source on <a href="https://github.com/Aneek1/quipcuts">GitHub</a>.</td></tr>

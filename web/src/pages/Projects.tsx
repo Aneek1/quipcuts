@@ -109,6 +109,7 @@ function NewProject({ me, onError }: { me: Me; onError: (msg: string) => void })
   const ready = mode === "file" ? !!file : linkOk && me.links;
   return (
     <div className="panel">
+      {me.links && (
       <div className="tabs" role="tablist">
         <button role="tab" aria-selected={mode === "file"} onClick={() => setMode("file")}>Upload a file</button>
         <button role="tab" aria-selected={mode === "link"} onClick={() => setMode("link")}>
@@ -116,6 +117,7 @@ function NewProject({ me, onError }: { me: Me; onError: (msg: string) => void })
           <span className={`live ${me.links ? "on" : ""}`} title={me.links ? "The link downloader is online" : "The link downloader is offline"} />
         </button>
       </div>
+      )}
       {mode === "link" ? (
         <div className="linkbox">
           <input

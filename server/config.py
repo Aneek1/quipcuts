@@ -53,6 +53,9 @@ DEV_AUTH = os.getenv("OPENCLIP_DEV_AUTH", "1" if not CLERK_ISSUER else "0") == "
 SIGNING_KEY = os.getenv("OPENCLIP_SIGNING_KEY") or secrets.token_hex(32)
 
 # shared secret the link downloader (fetcher/agent.py) sends; links are off when unset
+# YouTube links need the downloader in fetcher/ running on a home connection (YouTube blocks cloud
+# servers). Off since 21 Oct 2026: uploads only. OPENCLIP_LINKS=1 turns them back on.
+LINKS_ENABLED = os.getenv("OPENCLIP_LINKS", "0") == "1"
 FETCHER_TOKEN = os.getenv("FETCHER_TOKEN", "")
 FETCHER_ONLINE_S = 90          # a fetcher seen this recently counts as online
 FETCH_TIMEOUT_S = 20 * 60      # a claimed link not finished by then is given up on
