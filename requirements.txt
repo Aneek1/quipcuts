@@ -1,0 +1,28 @@
+# System requirement (not pip): FFmpeg + ffprobe on PATH, built with libass and libx264.
+
+# A - ingestion
+yt-dlp>=2025.10.22
+
+# B - transcription
+faster-whisper>=1.1.0
+
+# C - LLM highlight detection
+litellm>=1.60.0
+pydantic>=2.7
+
+# D - face tracking / reframing
+# opencv-contrib-python is the OpenCV flavour mediapipe itself depends on; installing plain
+# opencv-python alongside it gives two conflicting cv2 packages.
+opencv-contrib-python>=4.9
+numpy>=1.24
+# Optional but recommended (better face detection). Wheels can lag new Python versions; without it
+# the cropper falls back to OpenCV's Haar cascade automatically.
+mediapipe>=0.10.14; python_version < "3.13"
+
+# F - UI
+streamlit>=1.40
+
+# G - YouTube publishing
+google-api-python-client>=2.150
+google-auth-oauthlib>=1.2
+google-auth-httplib2>=0.2
