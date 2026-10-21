@@ -130,7 +130,7 @@ function NewProject({ me, onError }: { me: Me; onError: (msg: string) => void })
           />
           <p className="mono faint" style={{ margin: "10px 0 0" }}>
             {me.links
-              ? `Public videos up to ${me.limits.max_video_min} min. Only clip videos you have the rights to.`
+              ? `Public videos up to ${me.limits.max_video_min} min, and only ones you own or have permission to use. Uploading the file is more reliable.`
               : "The link downloader is offline right now (it runs on a home PC). Upload the file instead, or try later."}
           </p>
         </div>
@@ -178,6 +178,9 @@ function NewProject({ me, onError }: { me: Me; onError: (msg: string) => void })
         </button>
       </div>
       {busy && <div className="bar" aria-hidden="true"><i style={{ width: `${uploading! * 100}%` }} /></div>}
+      <p className="rights">
+        By starting, you confirm you own this video or have permission to use it. <Link to="/terms">Terms</Link>
+      </p>
       <p className="quota">
         {left > 0
           ? `${left} of ${me.limits.projects_per_day} uploads left today · resets 00:00 UTC`

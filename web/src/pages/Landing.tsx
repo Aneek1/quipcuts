@@ -39,9 +39,9 @@ function DemoClip() {
 }
 
 const STEPS = [
-  ["Bring a video", "Upload a talk, podcast or interview up to 15 minutes, or paste a public YouTube link."],
+  ["Upload", "A talk, podcast or interview you own, up to 15 minutes. A YouTube link of your own video works too."],
   ["Transcribe", "Whisper writes down every word with its start and end time."],
-  ["Pick", "An open-weights model reads the transcript and picks moments that make sense without the rest of the video."],
+  ["Pick", "qwen3:8b, an open-weights model running on the Quipcuts GPU rather than an outside AI service, reads the transcript and picks moments that make sense without the rest of the video."],
   ["Cut", "Each moment is reframed to 9:16 around the speaker and captioned word by word."],
   ["Edit", "Trim to the word, add a hook and a CTA, restyle the captions, then export the MP4."],
 ];
@@ -64,9 +64,9 @@ export default function Landing() {
             Find the <mark>forty seconds</mark> worth posting.
           </h1>
           <p className="lead">
-            Upload a talk, podcast or interview, or paste a YouTube link. Quipcuts transcribes it, picks the moments
-            that stand on their own, reframes them to vertical and burns in captions you can read with the sound off.
-            Then trim, add a hook and a call to action, and export.
+            Upload a talk, podcast or interview you recorded. Quipcuts transcribes it, picks the moments that stand on
+            their own, reframes them to vertical and burns in captions you can read with the sound off. Then trim, add a
+            hook and a call to action, and export.
           </p>
           <div className="cta">
             <Link to="/app" className="btn primary lg">Make clips</Link>
@@ -95,7 +95,8 @@ export default function Landing() {
           <p className="muted" style={{ marginTop: 16 }}>
             A good clip opens on a line that grabs you, makes sense on its own and ends once the point lands. The
             model gets the full transcript with timestamps, then the cut points are snapped to word boundaries so a
-            clip never starts mid-word.
+            clip never starts mid-word. Below is the real transcript around the clip at the top of this page, with the
+            part the model picked highlighted.
           </p>
           <p className="muted">
             Each clip gets a score out of 100. It's the model's own judgement, not a prediction trained on real views,
@@ -103,19 +104,28 @@ export default function Landing() {
           </p>
         </div>
         <div className="transcript">
-          <span className="t">11:52</span>…so that's roughly how the studio got started, and honestly the details matter less than you'd think.{" "}
+          <span className="t">0:34</span>…people are editing Wikipedia from big languages to very, very small languages. Somewhere
+          in the middle would be a language like Bangla, a lot of speakers, but it's sort of a small Wikipedia growing very
+          quickly and it's very exciting.{" "}
           <span className="cut" />
-          <span className="t">12:08</span>
+          <span className="t">0:48</span>
           <span className="pick">
-            Nobody tells you the first year is mostly waiting. You ship something, and then nothing happens for weeks,
-            and you start to think the idea was wrong. It usually wasn't. The waiting is the job.
+            So hopefully in a few more years, we're almost 25 years, maybe in the next 25 years, we'll fully realize our
+            dream of a free encyclopedia for every single person on the planet in their own language. So I think one of the
+            key piece of advice I have for a growing language community of Wikipedia is really think about those
+            newcomers. People come in and maybe they make one edit and then they don't come back or they come back maybe a
+            couple of times. You gotta really like greet them.
           </span>
-          <span className="cut" /> <span className="t">12:51</span>Anyway, the second thing we changed was pricing…
+          <span className="cut" /> <span className="t">1:20</span>It's very useful. Someone make one small edit, you pop on
+          their talk page…
           <div className="why">
-            <span className="eyebrow" style={{ marginBottom: 4 }}>Model's note · score 82 · example</span>
-            Opens on a claim most founders recognise, pays off in one line, and doesn't depend on anything said
-            earlier.
+            <span className="eyebrow" style={{ marginBottom: 4 }}>{DEMO.picker}'s note · score {DEMO.score} · verbatim</span>
+            {DEMO.note}
           </div>
+          <p className="caveat">
+            The note is a little generous: the clip stops mid-advice rather than on a strong line. That's what the editor
+            is for. The clip on this page keeps the cut and adds a CTA over the ending.
+          </p>
         </div>
       </section>
 
@@ -144,7 +154,7 @@ export default function Landing() {
             <tr><th>Speed</th><td>About two minutes for a 4-minute video. If nobody has used it for a while, add about a minute and a half for the GPU to wake up.</td></tr>
             <tr><th>Layouts</th><td>One speaker, or two people stacked top and bottom. The two-person layout is new and can frame the wrong spot when a face isn't detected.</td></tr>
             <tr><th>Retention</th><td>Everything is <b>deleted after 7 days</b>, including your upload. Download the clips you want to keep.</td></tr>
-            <tr><th>Sources</th><td>Uploads, and public YouTube links. Links are fetched by a downloader that isn't always online; when the link option is greyed out, upload the file instead.</td></tr>
+            <tr><th>Sources</th><td>Upload the file: MP4, MOV, MKV or WebM. Links to your own YouTube videos also work, through a downloader that isn't always online. Either way, only use videos you own or have permission to use.</td></tr>
             <tr><th>AI help</th><td>Ask AI in the editor uses <b>your own Claude or Mistral API key</b>, kept in your browser, or a small model that runs on your computer (Chrome or Edge, about 1 GB downloaded once). Neither goes through Quipcuts.</td></tr>
             <tr><th>Not yet</th><td>Posting straight to TikTok, Instagram or YouTube, saved brand presets, and a screen-share layout. These are next.</td></tr>
             <tr><th>Source code</th><td>Open source on <a href="https://github.com/Aneek1/quipcuts">GitHub</a>.</td></tr>
