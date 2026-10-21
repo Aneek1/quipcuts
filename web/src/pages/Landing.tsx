@@ -41,7 +41,7 @@ function DemoClip() {
 const STEPS = [
   ["Upload", "A talk, podcast or interview you own, up to 15 minutes. MP4, MOV, MKV or WebM."],
   ["Transcribe", "Whisper writes down every word with its start and end time."],
-  ["Pick", "qwen3:8b, an open-weights model running on the Quipcuts GPU rather than an outside AI service, reads the transcript and picks moments that make sense without the rest of the video."],
+  ["Pick", "Mistral Small 3.2, an open-weights model running on the Quipcuts GPU rather than an outside AI service, reads the transcript and picks moments that make sense without the rest of the video."],
   ["Cut", "Each moment is reframed to 9:16 around the speaker and captioned word by word."],
   ["Edit", "Trim to the word, add a hook and a CTA, restyle the captions, then export the MP4."],
 ];
@@ -102,6 +102,12 @@ export default function Landing() {
             Each clip gets a score out of 100. It's the model's own judgement, not a prediction trained on real views,
             so treat it as a ranking, not a promise.
           </p>
+          <p className="muted">
+            We did measure the picking itself. On 14 openly licensed videos, a separate AI judge compared each pick
+            with a random cut of the same length, without knowing which was which. It preferred Mistral Small's pick 
+            <b>34 times to 4</b> (4 ties). The model we used before, qwen3:8b, managed 25 to 11. 
+            <a href="https://github.com/Aneek1/quipcuts/blob/main/eval/RESULTS.md">Method and data</a>.
+          </p>
         </div>
         <div className="transcript">
           <span className="t">0:34</span>…people are editing Wikipedia from big languages to very, very small languages. Somewhere
@@ -119,7 +125,7 @@ export default function Landing() {
           <span className="cut" /> <span className="t">1:20</span>It's very useful. Someone make one small edit, you pop on
           their talk page…
           <div className="why">
-            <span className="eyebrow" style={{ marginBottom: 4 }}>{DEMO.picker}'s note · score {DEMO.score} · verbatim</span>
+            <span className="eyebrow" style={{ marginBottom: 4 }}>{DEMO.picker}'s note (our previous picker) · score {DEMO.score} · verbatim</span>
             {DEMO.note}
           </div>
           <p className="caveat">
@@ -155,6 +161,7 @@ export default function Landing() {
             <tr><th>Layouts</th><td>One speaker, or two people stacked top and bottom. The two-person layout is new and can frame the wrong spot when a face isn't detected.</td></tr>
             <tr><th>Retention</th><td>Everything is <b>deleted after 7 days</b>, including your upload. Download the clips you want to keep.</td></tr>
             <tr><th>Sources</th><td>File uploads only: MP4, MOV, MKV or WebM, up to 500 MB. If your video is on YouTube, download it from YouTube Studio first. Only use videos you own or have permission to use.</td></tr>
+            <tr><th>Pick quality</th><td>Measured, not claimed: in a blind test on 14 videos, Mistral Small's picks beat random same-length cuts 34 to 4. The judge was another AI reading transcripts, not real viewers, so read it as "clearly better than chance", not as a view count. <a href="https://github.com/Aneek1/quipcuts/blob/main/eval/RESULTS.md">Details</a>.</td></tr>
             <tr><th>AI help</th><td>Ask AI in the editor uses <b>your own Claude or Mistral API key</b>, kept in your browser, or a small model that runs on your computer (Chrome or Edge, about 1 GB downloaded once). Neither goes through Quipcuts.</td></tr>
             <tr><th>Not yet</th><td>Posting straight to TikTok, Instagram or YouTube, saved brand presets, and a screen-share layout. These are next.</td></tr>
             <tr><th>Source code</th><td>Open source on <a href="https://github.com/Aneek1/quipcuts">GitHub</a>.</td></tr>

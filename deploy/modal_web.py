@@ -23,7 +23,7 @@ import modal
 
 ROOT = Path(__file__).resolve().parent.parent
 APP_DIR = "/root/app"
-OLLAMA_MODEL = "qwen3:8b"
+OLLAMA_MODEL = "mistral-small3.2"  # picks clips; won 34-4 vs random cuts in eval/RESULTS.md (qwen3:8b 25-11)
 WHISPER_MODEL = "small"
 FONT_URL = "https://github.com/JulietaUla/Montserrat/raw/master/fonts/ttf/Montserrat-Black.ttf"
 WEB_ORIGIN = "https://quipcuts.app"
@@ -81,7 +81,7 @@ worker_image = (
 )
 
 
-@app.cls(image=worker_image, gpu="L4", cpu=8.0, memory=16384, timeout=1800, max_containers=1,
+@app.cls(image=worker_image, gpu="L4", cpu=8.0, memory=32768, timeout=1800, max_containers=1,
          scaledown_window=120, secrets=[secret])
 class Worker:
     @modal.enter()
