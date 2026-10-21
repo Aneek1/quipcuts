@@ -1,28 +1,40 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
+import { DEMO } from "../demo";
 
-// The hero caption mimics the rendered clips: three words on screen, the spoken one in yellow.
-const LINES = [
-  ["NOBODY", "TELLS", "YOU"],
-  ["THE", "FIRST", "YEAR"],
-  ["IS", "MOSTLY", "WAITING."],
-];
-const WORD_MS = 420;
-
-function Caption() {
-  const [step, setStep] = useState(0);
-  useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const id = window.setInterval(() => setStep((s) => (s + 1) % (LINES.length * 3)), WORD_MS);
-    return () => window.clearInterval(id);
-  }, []);
-  const line = LINES[Math.floor(step / 3)];
+// A real clip, cut and edited with Quipcuts from a CC BY interview (see web/src/demo.ts for the credit).
+function DemoClip() {
+  const [muted, setMuted] = useState(true);
+  const still = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   return (
-    <div className="caption" aria-hidden="true">
-      {line.map((w, i) => (
-        <span key={w + i} className={i === step % 3 ? "on" : ""}>{w}</span>
-      ))}
-    </div>
+    <figure className="demo">
+      <div className="phone real">
+        <video
+          src={DEMO.video}
+          poster={DEMO.poster}
+          autoPlay={!still}
+          controls={still}
+          muted={muted}
+          loop
+          playsInline
+          preload="metadata"
+          aria-label={DEMO.alt}
+        />
+        <span className="vscore" title="The clip-picking model's own estimate of how well this clip will do, out of 100. Not a measured view count.">
+          <b>{DEMO.score}</b>
+          <small>viral score</small>
+        </span>
+        {!still && (
+          <button className="sound" onClick={() => setMuted((m) => !m)} aria-pressed={!muted}>
+            {muted ? "Sound on" : "Sound off"}
+          </button>
+        )}
+      </div>
+      <figcaption>
+        <b>Real output, not a mockup.</b> {DEMO.what}
+        <span className="credit">{DEMO.credit}</span>
+      </figcaption>
+    </figure>
   );
 }
 
@@ -61,19 +73,7 @@ export default function Landing() {
             <span className="note">Free in beta · 3 videos a day</span>
           </div>
         </div>
-        <div className="phone" role="img" aria-label="A vertical clip with a word-by-word caption, the spoken word highlighted in yellow">
-          <div className="scene" />
-          <div className="figure" />
-          <div className="tc">
-            <span className="rec">00:41</span>
-            <span>9:16</span>
-          </div>
-          <Caption />
-          <div className="meta">
-            <span>clip 1 of 3</span>
-            <span>12:08 → 12:49</span>
-          </div>
-        </div>
+        <DemoClip />
       </section>
 
       <section className="wrap ruler">

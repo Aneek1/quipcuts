@@ -115,6 +115,30 @@ function trim(r: Recipe, start: number, end: number, all: Word[] | null): Recipe
   return { ...r, start, end, crop, overlays, words: wordsFor(start, end, all, r.words) };
 }
 
+/**
+ * Make the crop tighter (f < 1) or wider (f > 1). The top edge stays put, so faces stay in frame
+ * while a burned-in subtitle or name banner at the bottom of the source gets cut off.
+ */
+function resize(r: Recipe, list: "single" | "face_1" | "face_2", f: number): Recipe {
+  const { width: W, height: H } = r.source;
+  const kfs = r.crop[list]!;
+  const ratio = kfs[0].w / kfs[0].h; // keep the panel's aspect ratio (9:16, or 9:8 for split panels)
+  let h = Math.round(kfs[0].h * f);
+  h = Math.max(Math.round(H * 0.4), Math.min(h, H, Math.floor(W / ratio)));
+  const w = Math.round(h * ratio);
+  const moved = kfs.map((k) => {
+    const cx = k.x + k.w / 2;
+    return {
+      ...k,
+      w,
+      h,
+      x: Math.round(Math.min(W - w, Math.max(0, cx - w / 2))),
+      y: Math.round(Math.min(H - h, Math.max(0, k.y))),
+    };
+  });
+  return { ...r, crop: { ...r.crop, [list]: moved } };
+}
+
 function nudge(r: Recipe, list: "single" | "face_1" | "face_2", frac: number): Recipe {
   const kfs = r.crop[list]!;
   const step = r.source.width * frac;
@@ -439,14 +463,22 @@ function FramingPanel({ r, set, seek }: { r: Recipe; set: (r: Recipe) => void; s
         </>
       )}
       <hr className="rule" />
-      <p className="small muted" style={{ margin: 0 }}>Face tracking still follows the speaker; this shifts the whole path sideways.</p>
-      {rows.map(([list, label]) => (
-        <div className="row" key={list} style={{ gap: 8 }}>
-          <span className="grow">{label}</span>
-          <button className="btn sm" onClick={() => set(nudge(r, list, -0.03))}>← Left</button>
-          <button className="btn sm" onClick={() => set(nudge(r, list, 0.03))}>Right →</button>
-        </div>
-      ))}
+      <p className="small muted" style={{ margin: 0 }}>
+        Face tracking still follows the speaker. Shift the whole path sideways, or crop tighter to cut off subtitles or
+        a name banner already burned into the bottom of the video.
+      </p>
+      {rows.map(([list, label]) => {
+        const k = r.crop[list]![0];
+        return (
+          <div className="row" key={list} style={{ gap: 8 }}>
+            <span className="grow">{label} <span className="mono faint">{Math.round((k.h / r.source.height) * 100)}% of the height</span></span>
+            <button className="btn sm" onClick={() => set(nudge(r, list, -0.03))}>← Left</button>
+            <button className="btn sm" onClick={() => set(nudge(r, list, 0.03))}>Right →</button>
+            <button className="btn sm" onClick={() => set(resize(r, list, 0.92))}>Tighter</button>
+            <button className="btn sm ghost" onClick={() => set(resize(r, list, 1 / 0.92))}>Wider</button>
+          </div>
+        );
+      })}
     </div>
   );
 }

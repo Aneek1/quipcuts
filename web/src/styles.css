@@ -288,3 +288,16 @@ details.log pre { font: 12px/1.5 var(--mono); background: var(--paper); border: 
 .features b { font-weight: 800; font-variation-settings: "wdth" 85; }
 .features span { color: var(--ink-2); font-size: 15px; }
 @media (max-width: 560px) { .features li { grid-template-columns: 1fr; gap: 4px; } }
+/* hero demo: a real rendered clip in the phone frame */
+.demo { margin: 0; justify-self: center; width: 100%; max-width: 315px; }
+.phone.real { background: #000; }
+.phone.real video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.phone .sound { position: absolute; right: 10px; bottom: 10px; font: 600 12px var(--mono); color: var(--ink); background: var(--paper); border: 0; border-radius: 4px; padding: 5px 9px; cursor: pointer; opacity: 0.92; }
+.phone .sound:hover { opacity: 1; }
+.demo figcaption { margin-top: 16px; font-size: 14px; color: var(--ink-2); line-height: 1.45; }
+.demo figcaption b { color: var(--ink); }
+.demo .credit { display: block; margin-top: 6px; font: 500 11.5px/1.5 var(--mono); color: var(--ink-3); }
+@media (max-width: 860px) { .demo { max-width: 260px; } }
+.phone .vscore { position: absolute; top: 10px; right: 10px; display: flex; flex-direction: column; align-items: center; line-height: 1; background: var(--hl); color: var(--ink); border-radius: 6px; padding: 6px 8px 5px; cursor: help; }
+.phone .vscore b { font-size: 20px; font-weight: 900; font-variation-settings: "wdth" 85; }
+.phone .vscore small { font: 600 9.5px var(--mono); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; }

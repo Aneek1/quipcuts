@@ -1,0 +1,7 @@
+clip.mp4 and poster.jpg are adapted from:
+  "Interview with Jimmy Wales at Wikimania 2025 Nairobi" by DelwarHossain
+  https://commons.wikimedia.org/wiki/File:Interview_with_Jimmy_Wales_at_Wikimania_2025_Nairobi.webm
+  License: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+Changes: cut to a 32-second excerpt, cropped and reframed to 9:16, captions, a hook and a
+call-to-action added, punch-in zooms, re-encoded at 720x1280. Made with Quipcuts.
+Not affiliated with or endorsed by Wikipedia, the Wikimedia Foundation or the people shown.
